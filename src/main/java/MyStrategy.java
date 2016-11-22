@@ -4,8 +4,8 @@ import java.util.*;
 
 public final class MyStrategy implements Strategy {
     private static final double WAYPOINT_RADIUS = 100.0D;
-
     private static final double LOW_HP_FACTOR = 0.25D;
+
 
     /**
      * Ключевые точки для каждой линии, позволяющие упростить управление перемещением волшебника.
@@ -24,6 +24,7 @@ public final class MyStrategy implements Strategy {
     private World world;
     private Game game;
     private Move move;
+    private final double GAME_MAX_LIFE_POINT = 9999999;
 
     /**
      * Основной метод стратегии, осуществляющий управление волшебником.
@@ -41,6 +42,8 @@ public final class MyStrategy implements Strategy {
 
         // Постоянно двигаемся из-стороны в сторону, чтобы по нам было сложнее попасть.
         // Считаете, что сможете придумать более эффективный алгоритм уклонения? Попробуйте! ;)
+        move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());
+        move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());
         move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());
 
         // Если осталось мало жизненной энергии, отступаем к предыдущей ключевой точке на линии.
@@ -241,7 +244,14 @@ public final class MyStrategy implements Strategy {
         targets.addAll(Arrays.asList(world.getBuildings()));
         targets.addAll(Arrays.asList(world.getWizards()));
         targets.addAll(Arrays.asList(world.getMinions()));
+        List<Integer> targetsLife = new ArrayList<>();
+        double minHealth = GAME_MAX_LIFE_POINT;
+        for (LivingUnit target : targets) {
+            double currentLifePoint = target.getLife();
+            minHealth = Math.min(currentLifePoint, minHealth);
+            targetsLife.add(target.getLife());
 
+        }
         LivingUnit nearestTarget = null;
         double nearestTargetDistance = Double.MAX_VALUE;
 
@@ -249,12 +259,13 @@ public final class MyStrategy implements Strategy {
             if (target.getFaction() == Faction.NEUTRAL || target.getFaction() == self.getFaction()) {
                 continue;
             }
-
             double distance = self.getDistanceTo(target);
-
-            if (distance < nearestTargetDistance) {
+            /*if (distance < nearestTargetDistance) {
                 nearestTarget = target;
                 nearestTargetDistance = distance;
+            }*/
+            if (target.getLife() == minHealth) {
+                nearestTarget = target;
             }
         }
 
