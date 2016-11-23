@@ -4,7 +4,7 @@ import java.util.*;
 
 public final class MyStrategy implements Strategy {
     private static final double WAYPOINT_RADIUS = 100.0D;
-    private static final double LOW_HP_FACTOR = 0.34D;
+    private static final double LOW_HP_FACTOR = 0.35D;
 
 
     /**
@@ -26,6 +26,7 @@ public final class MyStrategy implements Strategy {
     private Move move;
     private final double GAME_MAX_LIFE_POINT = 9999999;
 
+
     /**
      * Основной метод стратегии, осуществляющий управление волшебником.
      * Вызывается каждый тик для каждого волшебника.
@@ -42,10 +43,33 @@ public final class MyStrategy implements Strategy {
 
         // Постоянно двигаемся из-стороны в сторону, чтобы по нам было сложнее попасть.
         // Считаете, что сможете придумать более эффективный алгоритм уклонения? Попробуйте! ;)
+        int evasionSign = (random.nextBoolean() ? 1 : -1);
+        int evasionActionsCount = evasionSign * random.nextInt(5);
+        for (int i = 0; i < Math.abs(evasionActionsCount); i++) {
+            move.setStrafeSpeed(evasionSign * game.getWizardStrafeSpeed());
+        }
+        /*
         move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());
         move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());
-        move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());
+        move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());*/
+        if (game.isSkillsEnabled()) {
+            if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_1)) {
+                move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_1);
+            }
+            if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_AURA_1)) {
+                move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_AURA_1);
+            }
+            if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_2)) {
+                move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_2);
+            }
+            if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_AURA_2)) {
+                move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_AURA_2);
+            }
+            if (!Arrays.asList(self.getSkills()).contains(SkillType.FIREBALL)) {
+                move.setSkillToLearn(SkillType.FIREBALL);
+            }
 
+        }
         // Если осталось мало жизненной энергии, отступаем к предыдущей ключевой точке на линии.
         if (self.getLife() < self.getMaxLife() * LOW_HP_FACTOR) {
             goTo(getPreviousWaypoint());
@@ -228,11 +252,36 @@ public final class MyStrategy implements Strategy {
      */
     private void goTo(Point2D point) {
         double angle = self.getAngleTo(point.getX(), point.getY());
-
-        move.setTurn(angle);
-
-        if (StrictMath.abs(angle) < game.getStaffSector() / 4.0D) {
-            move.setSpeed(game.getWizardForwardSpeed());
+        if (StrictMath.abs(angle) > StrictMath.PI / 24) {
+            double backAngle = StrictMath.abs(angle) > StrictMath.PI / 2 ?
+                    -(angle + StrictMath.PI - (angle > 0 ? 2 * StrictMath.PI : 0)) : angle;
+            double forwardWalkingTime = angle / game.getWizardMaxTurnAngle()
+                    + self.getDistanceTo(point.getX(), point.getY()) / game.getWizardForwardSpeed();
+            double strafeWalkingTime = (StrictMath.abs(angle) - StrictMath.PI / 2) / game.getWizardMaxTurnAngle()
+                    + self.getDistanceTo(point.getX(), point.getY()) / game.getWizardStrafeSpeed();
+            double backwardWalkingTime = backAngle / game.getWizardMaxTurnAngle()
+                    + self.getDistanceTo(point.getX(), point.getY()) / game.getWizardBackwardSpeed();
+            double minTime = StrictMath.min(StrictMath.min(forwardWalkingTime, strafeWalkingTime), backwardWalkingTime);
+            if (minTime == forwardWalkingTime) {
+                move.setTurn(angle);
+                move.setSpeed(game.getWizardForwardSpeed());
+            } else if (minTime == strafeWalkingTime) {
+                if (angle > 0) {
+                    move.setTurn(angle + StrictMath.PI / 2);
+                    move.setStrafeSpeed(game.getWizardStrafeSpeed());
+                } else {
+                    move.setTurn(angle - StrictMath.PI / 2);
+                    move.setStrafeSpeed(-game.getWizardStrafeSpeed());
+                }
+            } else if (minTime == backwardWalkingTime) {
+                move.setTurn(backAngle);
+                move.setSpeed(game.getWizardBackwardSpeed());
+            }
+        } else {
+            move.setTurn(angle);
+            if (StrictMath.abs(angle) < game.getStaffSector() / 4.0D) {
+                move.setSpeed(game.getWizardForwardSpeed());
+            }
         }
     }
 
@@ -292,15 +341,15 @@ public final class MyStrategy implements Strategy {
             return y;
         }
 
-        public double getDistanceTo(double x, double y) {
+        /*public*/ double getDistanceTo(double x, double y) {
             return StrictMath.hypot(this.x - x, this.y - y);
         }
 
-        public double getDistanceTo(Point2D point) {
+        /*public*/ double getDistanceTo(Point2D point) {
             return getDistanceTo(point.x, point.y);
         }
 
-        public double getDistanceTo(Unit unit) {
+        /*public*/ double getDistanceTo(Unit unit) {
             return getDistanceTo(unit.getX(), unit.getY());
         }
     }
