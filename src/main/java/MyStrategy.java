@@ -4,7 +4,7 @@ import java.util.*;
 
 public final class MyStrategy implements Strategy {
     private static final double WAYPOINT_RADIUS = 100.0D;
-    private static final double LOW_HP_FACTOR = 0.25D;
+    private static final double LOW_HP_FACTOR = 0.34D;
 
 
     /**
@@ -245,13 +245,13 @@ public final class MyStrategy implements Strategy {
         targets.addAll(Arrays.asList(world.getWizards()));
         targets.addAll(Arrays.asList(world.getMinions()));
         List<Integer> targetsLife = new ArrayList<>();
-        double minHealth = GAME_MAX_LIFE_POINT;
-        for (LivingUnit target : targets) {
-            double currentLifePoint = target.getLife();
-            minHealth = Math.min(currentLifePoint, minHealth);
-            targetsLife.add(target.getLife());
-
-        }
+//        double minHealth = GAME_MAX_LIFE_POINT;
+//        for (LivingUnit target : targets) {
+//            double currentLifePoint = target.getLife();
+//            minHealth = Math.min(currentLifePoint, minHealth);
+//            targetsLife.add(target.getLife());
+//
+//        }
         LivingUnit nearestTarget = null;
         double nearestTargetDistance = Double.MAX_VALUE;
 
@@ -260,13 +260,13 @@ public final class MyStrategy implements Strategy {
                 continue;
             }
             double distance = self.getDistanceTo(target);
-            /*if (distance < nearestTargetDistance) {
+            if (distance < nearestTargetDistance) {
                 nearestTarget = target;
                 nearestTargetDistance = distance;
-            }*/
-            if (target.getLife() == minHealth) {
-                nearestTarget = target;
             }
+          /*  if (target.getLife() == minHealth) {
+                nearestTarget = target;
+            }*/
         }
 
         return nearestTarget;
