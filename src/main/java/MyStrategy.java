@@ -4,8 +4,14 @@ import java.util.*;
 
 public final class MyStrategy implements Strategy {
     private static final double WAYPOINT_RADIUS = 100.0D;
-    private static final double LOW_HP_FACTOR = 0.35D;
+    private static final double LOW_HP_FACTOR = 0.70D;
+    private static boolean TURNING = false;
 
+    /**
+     TODO
+     1. Нужно научиться объходить других юнитов, если уперся в них
+     2. добавить waypoints
+     * */
 
     /**
      * Ключевые точки для каждой линии, позволяющие упростить управление перемещением волшебника.
@@ -24,7 +30,6 @@ public final class MyStrategy implements Strategy {
     private World world;
     private Game game;
     private Move move;
-    private final double GAME_MAX_LIFE_POINT = 9999999;
 
 
     /**
@@ -40,11 +45,74 @@ public final class MyStrategy implements Strategy {
     public void move(Wizard self, World world, Game game, Move move) {
         initializeStrategy(self, game);
         initializeTick(self, world, game, move);
+        if (!TURNING) {
+            evasionManeuver();
+        }
+        if (game.isSkillsEnabled()) {
+            learning();
+        }
+        if (getVisibleEnemies().size() > 0) {
+            battleMoving();
+        } else {
+            nonBattleMoving();
+        }
+    }
+
+    /**
+     * Изучаем скиллы
+     */
+    private void learning() {
+        if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_1)) {
+            move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_1);
+        }
+        if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_AURA_1)) {
+            move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_AURA_1);
+        }
+        if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_2)) {
+            move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_2);
+        }
+        if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_AURA_2)) {
+            move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_AURA_2);
+        }
+        if (!Arrays.asList(self.getSkills()).contains(SkillType.FIREBALL)) {
+            move.setSkillToLearn(SkillType.FIREBALL);
+        }
+    }
+
+    private void nonBattleMoving() {
+        goTo(getNextWaypoint());
+    }
+
+    private void battleMoving() {
+        if (self.getLife() < self.getMaxLife() * LOW_HP_FACTOR) {
+            evasionManeuver();
+            goTo(getPreviousWaypoint());
+
+        } else {
+            if (!canBeAttackedMoreThanOneEnemy()) {
+                //for one target
+                if (getTargets().size() == 0) {
+                    if (getVisibleEnemies().size() == 0) {
+                        goTo(getNextWaypoint());
+                    } else {
+                        goTo(selectTarget(getVisibleEnemies(), "NEAREST"));
+                    }
+                } else {
+                    attackTarget(selectTarget(getTargets(), "NEAREST"), true);
+                }
+            } else {
+                //for several target
+                recedeAndAttack();
+            }
+        }
+    }
+
+    private void evasionManeuver() {
 
         // Постоянно двигаемся из-стороны в сторону, чтобы по нам было сложнее попасть.
         // Считаете, что сможете придумать более эффективный алгоритм уклонения? Попробуйте! ;)
         int evasionSign = (random.nextBoolean() ? 1 : -1);
-        int evasionActionsCount = evasionSign * random.nextInt(5);
+        int evasionActionsCount = evasionSign * random.nextInt(9);
         for (int i = 0; i < Math.abs(evasionActionsCount); i++) {
             move.setStrafeSpeed(evasionSign * game.getWizardStrafeSpeed());
         }
@@ -52,57 +120,11 @@ public final class MyStrategy implements Strategy {
         move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());
         move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());
         move.setStrafeSpeed(random.nextBoolean() ? game.getWizardStrafeSpeed() : -game.getWizardStrafeSpeed());*/
-        if (game.isSkillsEnabled()) {
-            if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_1)) {
-                move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_1);
-            }
-            if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_AURA_1)) {
-                move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_AURA_1);
-            }
-            if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_2)) {
-                move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_2);
-            }
-            if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_AURA_2)) {
-                move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_AURA_2);
-            }
-            if (!Arrays.asList(self.getSkills()).contains(SkillType.FIREBALL)) {
-                move.setSkillToLearn(SkillType.FIREBALL);
-            }
+    }
 
-        }
-        // Если осталось мало жизненной энергии, отступаем к предыдущей ключевой точке на линии.
-        if (self.getLife() < self.getMaxLife() * LOW_HP_FACTOR) {
-            goTo(getPreviousWaypoint());
-            return;
-        }
-
-        LivingUnit nearestTarget = getNearestTarget();
-
-        // Если видим противника ...
-        if (nearestTarget != null) {
-            double distance = self.getDistanceTo(nearestTarget);
-
-            // ... и он в пределах досягаемости наших заклинаний, ...
-            if (distance <= self.getCastRange()) {
-                double angle = self.getAngleTo(nearestTarget);
-
-                // ... то поворачиваемся к цели.
-                move.setTurn(angle);
-
-                // Если цель перед нами, ...
-                if (StrictMath.abs(angle) < game.getStaffSector() / 2.0D) {
-                    // ... то атакуем.
-                    move.setAction(ActionType.MAGIC_MISSILE);
-                    move.setCastAngle(angle);
-                    move.setMinCastDistance(distance - nearestTarget.getRadius() + game.getMagicMissileRadius());
-                }
-
-                return;
-            }
-        }
-
-        // Если нет других действий, просто продвигаемся вперёд.
-        goTo(getNextWaypoint());
+    private void setTurnAdvanced(double angle) {
+        TURNING = true;
+        move.setTurn(angle);
     }
 
     /**
@@ -125,6 +147,7 @@ public final class MyStrategy implements Strategy {
                     new Point2D(800.0D, mapSize - 800.0D),
                     new Point2D(mapSize - 600.0D, 600.0D)
             });
+
 
             waypointsByLane.put(LaneType.TOP, new Point2D[]{
                     new Point2D(100.0D, mapSize - 100.0D),
@@ -263,22 +286,22 @@ public final class MyStrategy implements Strategy {
                     + self.getDistanceTo(point.getX(), point.getY()) / game.getWizardBackwardSpeed();
             double minTime = StrictMath.min(StrictMath.min(forwardWalkingTime, strafeWalkingTime), backwardWalkingTime);
             if (minTime == forwardWalkingTime) {
-                move.setTurn(angle);
+                setTurnAdvanced(angle);
                 move.setSpeed(game.getWizardForwardSpeed());
             } else if (minTime == strafeWalkingTime) {
                 if (angle > 0) {
-                    move.setTurn(angle + StrictMath.PI / 2);
+                    setTurnAdvanced(angle + StrictMath.PI / 2);
                     move.setStrafeSpeed(game.getWizardStrafeSpeed());
                 } else {
-                    move.setTurn(angle - StrictMath.PI / 2);
+                    setTurnAdvanced(angle - StrictMath.PI / 2);
                     move.setStrafeSpeed(-game.getWizardStrafeSpeed());
                 }
             } else if (minTime == backwardWalkingTime) {
-                move.setTurn(backAngle);
+                setTurnAdvanced(backAngle);
                 move.setSpeed(game.getWizardBackwardSpeed());
             }
         } else {
-            move.setTurn(angle);
+            setTurnAdvanced(angle);
             if (StrictMath.abs(angle) < game.getStaffSector() / 4.0D) {
                 move.setSpeed(game.getWizardForwardSpeed());
             }
@@ -352,5 +375,116 @@ public final class MyStrategy implements Strategy {
         /*public*/ double getDistanceTo(Unit unit) {
             return getDistanceTo(unit.getX(), unit.getY());
         }
+    }
+
+    /**
+     * получение списка видимых врагов
+     */
+    private ArrayList<LivingUnit> getVisibleEnemies() {
+        ArrayList<LivingUnit> enemies = new ArrayList<>();
+        for (Minion minion : world.getMinions()) {
+            if (minion.getFaction() != Faction.NEUTRAL && minion.getFaction() != self.getFaction()) {
+                enemies.add(minion);
+            }
+        }
+        for (Wizard wizard : world.getWizards()) {
+            if (wizard.getFaction() != self.getFaction()) {
+                enemies.add(wizard);
+            }
+        }
+        for (Building build : world.getBuildings()) {
+            if (build.getFaction() != self.getFaction()) {
+                enemies.add(build);
+            }
+        }
+        return enemies;
+    }
+
+    /**
+     * получение списка целей, находящихся в радиусе атаки
+     */
+    private ArrayList<LivingUnit> getTargets() {
+        ArrayList<LivingUnit> targets = new ArrayList<>();
+        for (LivingUnit enemy : getVisibleEnemies()) {
+            if (self.getDistanceTo(enemy) <= self.getCastRange() || self.getDistanceTo(enemy) <= game.getStaffRange()) {
+                targets.add(enemy);
+            }
+        }
+        return targets;
+    }
+
+    /**
+     * Проверяем, можем ли мы быть атакованы более чем одним противником
+     */
+    private boolean canBeAttackedMoreThanOneEnemy() {
+        double fetishAttackRange = 300; // TODO need to clarify
+        double orcAttackRange = 50;// TODO need to clarify
+        List<LivingUnit> potentialAbuser = new ArrayList<>();
+        for (LivingUnit livingUnit : getVisibleEnemies()) {
+            if (livingUnit instanceof Minion) {
+                if (((Minion) livingUnit).getType() == MinionType.ORC_WOODCUTTER && (self.getDistanceTo(livingUnit) + self.getRadius()) <= orcAttackRange) {
+                    potentialAbuser.add(livingUnit);
+                }
+                if (((Minion) livingUnit).getType() == MinionType.FETISH_BLOWDART && (self.getDistanceTo(livingUnit) + self.getRadius()) <= fetishAttackRange) {
+                    potentialAbuser.add(livingUnit);
+                }
+            }
+            if (livingUnit instanceof Wizard) {
+                if (((Wizard) livingUnit).getCastRange() >= self.getDistanceTo(livingUnit) + self.getRadius() || game.getStaffRange() >= self.getDistanceTo(livingUnit) + self.getRadius()) {
+                    potentialAbuser.add(livingUnit);
+                }
+            }
+            if (livingUnit instanceof Building) {
+                if (((Building) livingUnit).getAttackRange() >= self.getDistanceTo(livingUnit)) {
+                    potentialAbuser.add(livingUnit);
+                }
+            }
+        }
+        return potentialAbuser.size() > 1;
+    }
+
+    private LivingUnit selectTarget(List<LivingUnit> possibleTargets, String selectingFactor) {
+        LivingUnit selectedTarget = null;
+        // пока будем брать ближайшую цель
+        double minDistance = Double.MAX_VALUE;
+        for (LivingUnit possibleTarget : possibleTargets) {
+            if (minDistance > self.getDistanceTo(possibleTarget)) {
+                minDistance = self.getDistanceTo(possibleTarget);
+                selectedTarget = possibleTarget;
+            }
+        }
+        return selectedTarget;
+    }
+
+    private void goTo(LivingUnit livingUnit) {
+        move.setTurn(self.getAngleTo(livingUnit)); // todo add game.staffAngle
+        move.setSpeed(game.getWizardForwardSpeed());
+    }
+
+    private void attackTarget(LivingUnit livingUnit, Boolean strict) {
+/**
+ * strict = true - обязательно повернуться к цели
+ = false - не поворачиваться к цели
+ */
+        double angle = self.getAngleTo(livingUnit);
+        if (strict) {
+            move.setTurn(angle);
+        }
+        double distance = self.getDistanceTo(livingUnit);
+        if (StrictMath.abs(angle) < game.getStaffSector() / 2.0D) {
+            // ... то атакуем.
+            move.setAction(ActionType.MAGIC_MISSILE);
+            move.setCastAngle(angle);
+            move.setMinCastDistance(distance - livingUnit.getRadius() + game.getMagicMissileRadius());
+        }
+
+    }
+
+    private void recedeAndAttack() {
+        Point2D recedePoint = getPreviousWaypoint();
+        double angle = self.getAngleTo(recedePoint.getX(), recedePoint.getY());
+        move.setTurn(angle > 0 ? angle - StrictMath.PI : angle + StrictMath.PI);
+        move.setSpeed(-game.getWizardBackwardSpeed());
+        attackTarget(selectTarget(getTargets(), "LOW_HP"), false);
     }
 }
