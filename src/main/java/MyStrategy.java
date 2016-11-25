@@ -1,3 +1,4 @@
+import javafx.util.Pair;
 import model.*;
 
 import java.util.*;
@@ -5,7 +6,7 @@ import java.util.*;
 public final class MyStrategy implements Strategy {
     private static final double WAYPOINT_RADIUS = 100.0D;
     private static final double LOW_HP_FACTOR = 0.40D;
-    private static boolean TURNING = false; /** TODO 1. Нужно научиться объходить других юнитов, если уперся в них 2. добавить waypoints */
+    private static boolean LOGGING = true; /** TODO 1. Нужно научиться объходить других юнитов, если уперся в них 2. добавить waypoints */
     /**
      * Ключевые точки для каждой  линии, позволяющие упростить управление перемещением волшебника.
      * Если всё хорошо, двигаемся к следующей точке и атакуем противников.
@@ -19,6 +20,7 @@ public final class MyStrategy implements Strategy {
     private World world;
     private Game game;
     private Move move;
+    private List<Pair<Integer, String>> actionType = new ArrayList<>();
 
     /**
      * Основной метод стратегии, осуществляющий управление волшебником. Вызывается каждый тик для каждого волшебника.
@@ -30,6 +32,7 @@ public final class MyStrategy implements Strategy {
      */
     @Override
     public void move(Wizard self, World world, Game game, Move move) {
+        Logging();
         initializeStrategy(self, game);
         initializeTick(self, world, game, move);
 //        if (!TURNING) evasionManeuver();
@@ -47,6 +50,7 @@ public final class MyStrategy implements Strategy {
      * Изучаем скиллы
      */
     private void learning() {
+        Logging();
         if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_1))
             move.setSkillToLearn(SkillType.STAFF_DAMAGE_BONUS_PASSIVE_1);
         if (!Arrays.asList(self.getSkills()).contains(SkillType.STAFF_DAMAGE_BONUS_AURA_1))
@@ -59,10 +63,12 @@ public final class MyStrategy implements Strategy {
     }
 
     private void nonBattleMoving() {
+        Logging();
         goTo(getNextWaypoint(), false);
     }
 
     private void battleMoving() {
+        Logging();
         if (self.getLife() < self.getMaxLife() * LOW_HP_FACTOR) {
 //            evasionManeuver();
             goTo(getPreviousWaypoint(), false);
@@ -82,6 +88,7 @@ public final class MyStrategy implements Strategy {
     }
 
     private void setTurnAdvanced(double angle) {
+        Logging();
         move.setTurn(angle);
     }
 
@@ -281,6 +288,7 @@ public final class MyStrategy implements Strategy {
     }
 
     private void attackTarget(LivingUnit livingUnit, Boolean strict) { /** strict = true - обязательно повернуться к цели = false - не поворачиваться к цели */
+        Logging();
         double angle = self.getAngleTo(livingUnit);
         if (strict) move.setTurn(angle);
         double distance = self.getDistanceTo(livingUnit);
@@ -292,14 +300,16 @@ public final class MyStrategy implements Strategy {
     }
 
     private void recedeAndAttack() {
+        Logging();
         goTo(getPreviousWaypoint(), true);
         attackTarget(selectTarget(getTargets(), "LOW_HP"), false);
     }
 
     private void vibration() {
+        Logging();
         int vibrationSign = (random.nextBoolean() ? 1 : -1);
         int vibrationStepsCount = vibrationSign * (10 + random.nextInt(10));
-        System.out.println("vibration");
+
         for (int i = 0; i < Math.abs(vibrationStepsCount); i++)
             move.setStrafeSpeed(vibrationSign * game.getWizardStrafeSpeed());
     }
@@ -320,6 +330,7 @@ public final class MyStrategy implements Strategy {
     }
 
     private void goTo(Object target, Boolean backWard) {
+        Logging();
         Double x = 0.0;
         Double y = 0.0;
         if (target instanceof Point2D) {
@@ -362,6 +373,28 @@ public final class MyStrategy implements Strategy {
                 setTurnAdvanced(angle);
                 if (StrictMath.abs(angle) < game.getStaffSector() / 4.0D) move.setSpeed(game.getWizardForwardSpeed());
             }
+        }
+    }
+
+    private void Logging() {
+        if (actionType.size() > 0) {
+            Pair<Integer, String> newLog, oldLog = actionType.get(actionType.size() - 1);
+            if (oldLog.getKey() + 10 < world.getTickIndex() || oldLog.getValue() != Thread.currentThread().getStackTrace()[2].getMethodName()) {
+                newLog = new Pair<>(world.getTickIndex(), Thread.currentThread().getStackTrace()[2].getMethodName());
+                actionType.add(newLog);
+                printLog(newLog);
+            }
+
+        } else {
+            Pair<Integer, String> newLog = new Pair<>(world == null ? 0 : world.getTickIndex(), Thread.currentThread().getStackTrace()[2].getMethodName());
+            actionType.add(newLog);
+            printLog(newLog);
+        }
+    }
+
+    private void printLog(Pair<Integer, String> logItem) {
+        if (LOGGING) {
+            System.out.println(logItem.getKey() + ": " + logItem.getValue());
         }
     }
     /*
