@@ -95,8 +95,21 @@ public final class MyStrategy implements Strategy {
         if (random == null) {
             random = new Random(game.getRandomSeed());
             double mapSize = game.getMapSize();
-            waypointsByLane.put(LaneType.MIDDLE, new Point2D[]{new Point2D(100.0D, mapSize - 100.0D), random.nextBoolean() ? new Point2D(600.0D, mapSize - 200.0D) : new Point2D(200.0D, mapSize - 600.0D), new Point2D(800.0D, mapSize - 800.0D), new Point2D(mapSize - 600.0D, 600.0D)});
-            waypointsByLane.put(LaneType.TOP, new Point2D[]{new Point2D(100.0D, mapSize - 100.0D), new Point2D(100.0D, mapSize - 400.0D), new Point2D(200.0D, mapSize - 800.0D), new Point2D(200.0D, mapSize * 0.75D), new Point2D(200.0D, mapSize * 0.5D), new Point2D(200.0D, mapSize * 0.25D), new Point2D(200.0D, 200.0D), new Point2D(mapSize * 0.25D, 200.0D), new Point2D(mapSize * 0.5D, 200.0D), new Point2D(mapSize * 0.75D, 200.0D), new Point2D(mapSize - 200.0D, 200.0D)});
+            waypointsByLane.put(LaneType.MIDDLE, new Point2D[]{new Point2D(100.0D, mapSize - 100.0D)
+                    , random.nextBoolean() ? new Point2D(600.0D, mapSize - 200.0D) : new Point2D(200.0D, mapSize - 600.0D)
+                    , new Point2D(800.0D, mapSize - 800.0D)
+                    , new Point2D(mapSize - 600.0D, 600.0D)});
+            waypointsByLane.put(LaneType.TOP, new Point2D[]{new Point2D(100.0D, mapSize - 100.0D)
+                    , new Point2D(100.0D, mapSize - 400.0D)
+                    , new Point2D(200.0D, mapSize - 800.0D)
+                    , new Point2D(200.0D, mapSize * 0.75D)
+                    , new Point2D(200.0D, mapSize * 0.5D)
+                    , new Point2D(200.0D, mapSize * 0.25D)
+                    , new Point2D(200.0D, 200.0D)
+                    , new Point2D(mapSize * 0.25D, 200.0D)
+                    , new Point2D(mapSize * 0.5D, 200.0D)
+                    , new Point2D(mapSize * 0.75D, 200.0D)
+                    , new Point2D(mapSize - 200.0D, 200.0D)});
             waypointsByLane.put(LaneType.BOTTOM, new Point2D[]{new Point2D(100.0D, mapSize - 100.0D), new Point2D(400.0D, mapSize - 100.0D), new Point2D(800.0D, mapSize - 200.0D), new Point2D(mapSize * 0.25D, mapSize - 200.0D), new Point2D(mapSize * 0.5D, mapSize - 200.0D), new Point2D(mapSize * 0.75D, mapSize - 200.0D), new Point2D(mapSize - 200.0D, mapSize - 200.0D), new Point2D(mapSize - 200.0D, mapSize * 0.75D), new Point2D(mapSize - 200.0D, mapSize * 0.5D), new Point2D(mapSize - 200.0D, mapSize * 0.25D), new Point2D(mapSize - 200.0D, 200.0D)});
             switch ((int) self.getId()) {
                 case 1:
